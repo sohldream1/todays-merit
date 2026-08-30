@@ -1,0 +1,564 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum CauseArea {
+  community
+  faith
+  youth
+  health
+  environment
+  arts_education
+  other
+}
+
+enum VerificationStatus {
+  unverified
+  pending
+  verified
+  rejected
+}
+
+enum SubscriptionTier {
+  starter
+  growth
+  professional
+  enterprise
+}
+
+enum OrgAdminRole {
+  owner
+  admin
+  editor
+  // Scoped-down role: manages only race/competition-category opportunities
+  // for this org and awards "competition" badges — not campaigns, other
+  // badges, swag, integrations, or the org profile. See auth.controller.ts
+  // resolveRoleAndOrg, which maps this to AccountRole "race_director"
+  // (a distinct top-level account type, not a flavor of org_admin).
+  race_director
+}
+
+enum OpportunityStatus {
+  open
+  closed
+}
+
+enum OpportunityCategory {
+  volunteer
+  race
+  competition
+}
+
+enum SignupStatus {
+  signed_up
+  confirmed
+  completed
+  cancelled
+}
+
+enum HourVerificationStatus {
+  self_reported
+  verified_by_org
+}
+
+enum CampaignStatus {
+  draft
+  active
+  completed
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  refunded
+}
+
+enum BadgeType {
+  volunteer_milestone
+  donation_milestone
+  competition
+  custom
+}
+
+enum IntegrationProvider {
+  salesforce
+  raisers_edge_nxt
+  gofundme_pro
+  swag_com
+}
+
+enum IntegrationStatus {
+  disconnected
+  connected
+  error
+}
+
+enum SyncEntityType {
+  donor
+  donation
+  volunteer_hour
+}
+
+enum SyncStatus {
+  pending
+  synced
+  failed
+}
+
+enum GuideStarSealLevel {
+  platinum
+  gold
+  silver
+  bronze
+  none
+}
+
+enum SwagOrderStatus {
+  pending
+  submitted
+  shipped
+  delivered
+  failed
+  cancelled
+}
+
+// Shared by SwagOrder.triggerType and SwagAutoRule.triggerType. Rules only
+// ever use badge_awarded/tier_reached — "manual" is not a valid rule trigger,
+// enforced at the application layer rather than with two separate enums.
+enum SwagTriggerType {
+  manual
+  badge_awarded
+  tier_reached
+}
+
+// ---------- Models ----------
+
+model Organization {
+  id                 String             @id @default(uuid())
+  name               String
+  ein                String
+  missionStatement   String?            @map("mission_statement")
+  websiteUrl         String?            @map("website_url")
+  logoUrl            String?            @map("logo_url")
+  causeArea          CauseArea          @map("cause_area")
+  city               String?
+  state              String?
+  country            String?
+  verificationStatus VerificationStatus @default(unverified) @map("verification_status")
+  verificationNotes  String?            @map("verification_notes")
+  subscriptionTier   SubscriptionTier   @default(starter) @map("subscription_tier")
+
+  // Soft-delete / archive instead of hard delete, so historical records
+  // (donations, volunteer hours, etc.) survive an org being removed.
+  isArchived         Boolean            @default(false) @map("is_archived")
+  archivedAt         DateTime?          @map("archived_at")
+
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  orgAdmins             OrgAdmin[]
+  volunteerOpportunities VolunteerOpportunity[]
+  volunteerHours         VolunteerHour[]
+  campaigns              Campaign[]
+  donations              Donation[]
+  badges                 Badge[]
+  userBadges             UserBadge[]
+  tiers                  Tier[]
+  userTiers              UserTier[]
+  orgIntegrations        OrgIntegration[]
+  charityRating          CharityRating?
+  swagProducts           SwagProduct[]
+  swagOrders             SwagOrder[]
+  swagAutoRules          SwagAutoRule[]
+
+  @@map("organizations")
+}
+
+model User {
+  id                 String      @id @default(uuid())
+  email              String      @unique
+  passwordHash       String      @map("password_hash")
+  firstName          String      @map("first_name")
+  lastName           String      @map("last_name")
+  profilePhotoUrl    String?     @map("profile_photo_url")
+  causeAreaInterests CauseArea[] @map("cause_area_interests")
+
+  // Self-managed shipping address, used by the swag program to know where to
+  // send physical items. All optional — a member with no address set simply
+  // can't be selected as a swag recipient yet (enforced at the API layer).
+  shippingName       String?  @map("shipping_name")
+  shippingAddressLine1 String? @map("shipping_address_line1")
+  shippingAddressLine2 String? @map("shipping_address_line2")
+  shippingCity         String? @map("shipping_city")
+  shippingState        String? @map("shipping_state")
+  shippingPostalCode   String? @map("shipping_postal_code")
+  shippingCountry      String? @map("shipping_country")
+
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  orgAdmins         OrgAdmin[]
+  volunteerSignups  VolunteerSignup[]
+  volunteerHours    VolunteerHour[]
+  donations         Donation[]
+  userBadges        UserBadge[]
+  userTiers         UserTier[]
+  swagOrders        SwagOrder[]
+
+  @@map("users")
+}
+
+model OrgAdmin {
+  id             String       @id @default(uuid())
+  userId         String       @map("user_id")
+  organizationId String       @map("organization_id")
+  role           OrgAdminRole @default(owner)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@map("org_admins")
+}
+
+model VolunteerOpportunity {
+  id             String              @id @default(uuid())
+  organizationId String              @map("organization_id")
+  title          String
+  description    String?
+  location       String?
+  isRemote       Boolean             @default(false) @map("is_remote")
+  startDate      DateTime?           @map("start_date")
+  endDate        DateTime?           @map("end_date")
+  status         OpportunityStatus   @default(open)
+  category       OpportunityCategory @default(volunteer)
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  signups      VolunteerSignup[]
+  hours        VolunteerHour[]
+
+  @@map("volunteer_opportunities")
+}
+
+model VolunteerSignup {
+  id           String       @id @default(uuid())
+  userId       String       @map("user_id")
+  opportunityId String      @map("opportunity_id")
+  status       SignupStatus @default(signed_up)
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  opportunity VolunteerOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, opportunityId])
+  @@map("volunteer_signups")
+}
+
+model VolunteerHour {
+  id                 String                  @id @default(uuid())
+  userId             String                  @map("user_id")
+  organizationId     String                  @map("organization_id")
+  opportunityId      String?                 @map("opportunity_id")
+  hours              Decimal                 @db.Decimal(6, 2)
+  dateOfService      DateTime                @map("date_of_service") @db.Date
+  verificationStatus HourVerificationStatus  @default(self_reported) @map("verification_status")
+  createdAt          DateTime                @default(now()) @map("created_at")
+
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity  VolunteerOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  @@map("volunteer_hours")
+}
+
+model Campaign {
+  id             String         @id @default(uuid())
+  organizationId String         @map("organization_id")
+  title          String
+  description    String?
+  goalAmount     Decimal        @map("goal_amount") @db.Decimal(12, 2)
+  amountRaised   Decimal        @default(0) @map("amount_raised") @db.Decimal(12, 2)
+  startDate      DateTime?      @map("start_date")
+  endDate        DateTime?      @map("end_date")
+  status         CampaignStatus @default(draft)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  donations    Donation[]
+
+  @@map("campaigns")
+}
+
+model Donation {
+  id              String        @id @default(uuid())
+  userId          String        @map("user_id")
+  organizationId  String        @map("organization_id")
+  campaignId      String?       @map("campaign_id")
+  amount          Decimal       @db.Decimal(12, 2)
+  donatedAt       DateTime      @default(now()) @map("donated_at")
+  paymentStatus   PaymentStatus @default(pending) @map("payment_status")
+  stripePaymentId String?       @unique @map("stripe_payment_id")
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@map("donations")
+}
+
+model Badge {
+  id             String    @id @default(uuid())
+  organizationId String    @map("organization_id")
+  name           String
+  description    String?
+  iconUrl        String?   @map("icon_url")
+  badgeType      BadgeType @map("badge_type")
+  criteria       Json
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  userBadges   UserBadge[]
+  swagAutoRules SwagAutoRule[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  badgeId        String   @map("badge_id")
+  organizationId String   @map("organization_id")
+  awardedAt      DateTime @default(now()) @map("awarded_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  badge        Badge        @relation(fields: [badgeId], references: [id], onDelete: Restrict)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+model Tier {
+  id             String  @id @default(uuid())
+  organizationId String? @map("organization_id")
+  name           String
+  rankOrder      Int     @map("rank_order")
+  criteria       Json
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  userTiers    UserTier[]
+  swagAutoRules SwagAutoRule[]
+
+  @@map("tiers")
+}
+
+model UserTier {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  organizationId String?   @map("organization_id")
+  tierId         String    @map("tier_id")
+  achievedAt     DateTime  @default(now()) @map("achieved_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  tier         Tier          @relation(fields: [tierId], references: [id], onDelete: Restrict)
+
+  // NOTE: Postgres treats NULL as distinct in unique constraints, so this does
+  // NOT prevent a user from having more than one platform-wide (organizationId
+  // = null) tier row. Enforce "at most one platform-wide tier per user" at the
+  // application layer when that feature is built.
+  @@unique([userId, organizationId, tierId])
+  @@map("user_tiers")
+}
+
+model OrgIntegration {
+  id             String              @id @default(uuid())
+  organizationId String              @map("organization_id")
+  provider       IntegrationProvider
+  status         IntegrationStatus   @default(disconnected)
+
+  // AES-256-GCM encrypted JSON blob (access/refresh tokens, instance URL,
+  // etc.) — never store CRM credentials in plaintext. Null until connected.
+  credentials    String?
+
+  // Display-only identifier for the connected CRM org/tenant (e.g. Salesforce
+  // instance URL), safe to show in the UI without decrypting credentials.
+  externalOrgLabel String?  @map("external_org_label")
+
+  connectedAt DateTime? @map("connected_at")
+  lastSyncAt  DateTime? @map("last_sync_at")
+  lastError   String?   @map("last_error")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  syncRecords  IntegrationSyncRecord[]
+
+  @@unique([organizationId, provider])
+  @@map("org_integrations")
+}
+
+model IntegrationSyncRecord {
+  id               String         @id @default(uuid())
+  orgIntegrationId String         @map("org_integration_id")
+  entityType       SyncEntityType @map("entity_type")
+
+  // The id of the local record being synced: User.id for "donor",
+  // Donation.id for "donation", VolunteerHour.id for "volunteer_hour".
+  localId String @map("local_id")
+
+  externalId   String?    @map("external_id")
+  status       SyncStatus @default(pending)
+  errorMessage String?    @map("error_message")
+  syncedAt     DateTime?  @map("synced_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  orgIntegration OrgIntegration @relation(fields: [orgIntegrationId], references: [id], onDelete: Cascade)
+
+  @@unique([orgIntegrationId, entityType, localId])
+  @@map("integration_sync_records")
+}
+
+// Cached third-party ratings, looked up by the org's EIN. Populated lazily
+// (on first directory/detail view) rather than fetched live on every
+// request — external, rate-limited, and slow-changing data. `isMock` is
+// true whenever either field was filled in without a real API key
+// configured, so the UI can label simulated ratings clearly.
+model CharityRating {
+  id             String @id @default(uuid())
+  organizationId String @unique @map("organization_id")
+
+  charityNavigatorStars     Int?      @map("charity_navigator_stars")
+  charityNavigatorScore     Decimal?  @map("charity_navigator_score") @db.Decimal(5, 2)
+  charityNavigatorUrl       String?   @map("charity_navigator_url")
+  charityNavigatorFetchedAt DateTime? @map("charity_navigator_fetched_at")
+
+  guideStarSealLevel GuideStarSealLevel? @map("guide_star_seal_level")
+  guideStarUrl       String?             @map("guide_star_url")
+  guideStarFetchedAt DateTime?           @map("guide_star_fetched_at")
+
+  isMock Boolean @default(true) @map("is_mock")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("charity_ratings")
+}
+
+// An org's swag catalog. Not hard-deleted (isArchived instead) since past
+// SwagOrder rows reference a product and should keep showing what was sent
+// even after that item is retired.
+model SwagProduct {
+  id             String  @id @default(uuid())
+  organizationId String  @map("organization_id")
+
+  // Swag.com's id for this product, once pulled from a connected catalog.
+  // Null for a manually-entered item never matched to Swag.com.
+  externalProductId String? @map("external_product_id")
+
+  name        String
+  description String?
+  imageUrl    String?  @map("image_url")
+  category    String?
+  sizes       String[]
+
+  unitCost Decimal @map("unit_cost") @db.Decimal(10, 2)
+  currency String  @default("USD")
+
+  isArchived Boolean  @default(false) @map("is_archived")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orders       SwagOrder[]
+  autoRules    SwagAutoRule[]
+
+  // Lets catalog import from Swag.com upsert by external id instead of
+  // creating duplicate rows on repeated imports. Postgres treats each NULL
+  // as distinct, so manually-entered items (externalProductId: null) never
+  // collide with each other under this constraint.
+  @@unique([organizationId, externalProductId])
+  @@map("swag_products")
+}
+
+// A single send of a swag item to a recipient — historical/financial-ish
+// record (mirrors the Donation/VolunteerHour pattern), so user/org/product
+// FKs are Restrict rather than Cascade. Shipping fields are a snapshot of
+// the recipient's address at send time so the order stays accurate even if
+// the member later edits their profile address.
+model SwagOrder {
+  id             String          @id @default(uuid())
+  organizationId String          @map("organization_id")
+  swagProductId  String          @map("swag_product_id")
+  recipientUserId String         @map("recipient_user_id")
+
+  size     String?
+  quantity Int     @default(1)
+  status   SwagOrderStatus @default(pending)
+
+  triggerType   SwagTriggerType @default(manual) @map("trigger_type")
+  triggerRuleId String?         @map("trigger_rule_id")
+
+  shipToName         String  @map("ship_to_name")
+  shipToAddressLine1 String  @map("ship_to_address_line1")
+  shipToAddressLine2 String? @map("ship_to_address_line2")
+  shipToCity         String  @map("ship_to_city")
+  shipToState        String? @map("ship_to_state")
+  shipToPostalCode   String  @map("ship_to_postal_code")
+  shipToCountry      String  @map("ship_to_country")
+
+  requestedByUserId String?   @map("requested_by_user_id")
+  externalOrderId   String?   @map("external_order_id")
+  trackingNumber    String?   @map("tracking_number")
+  trackingUrl       String?   @map("tracking_url")
+  lastError         String?   @map("last_error")
+
+  submittedAt DateTime? @map("submitted_at")
+  shippedAt   DateTime? @map("shipped_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  swagProduct   SwagProduct  @relation(fields: [swagProductId], references: [id], onDelete: Restrict)
+  recipient     User         @relation(fields: [recipientUserId], references: [id], onDelete: Restrict)
+  triggerRule   SwagAutoRule? @relation(fields: [triggerRuleId], references: [id], onDelete: SetNull)
+
+  @@map("swag_orders")
+}
+
+// Config: "when a member earns badge X (or reaches tier Y) in this org,
+// automatically send them product Z." Event-driven off the gamification
+// engine (evaluateOrgBadges/evaluateTiers) — never applied retroactively to
+// members who already crossed the threshold before the rule existed.
+model SwagAutoRule {
+  id             String          @id @default(uuid())
+  organizationId String          @map("organization_id")
+  swagProductId  String          @map("swag_product_id")
+  triggerType    SwagTriggerType @map("trigger_type")
+  badgeId        String?         @map("badge_id")
+  tierId         String?         @map("tier_id")
+
+  size     String?
+  quantity Int     @default(1)
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  swagProduct  SwagProduct  @relation(fields: [swagProductId], references: [id], onDelete: Restrict)
+  badge        Badge?       @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  tier         Tier?        @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  orders       SwagOrder[]
+
+  @@map("swag_auto_rules")
+}
