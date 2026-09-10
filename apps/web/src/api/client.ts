@@ -35,6 +35,7 @@ import type {
   OrgDonation,
   OrgIntegration,
   OrgInviteDetails,
+  OrgSignup,
   OrgVolunteerHour,
   RecommendationsResult,
   ReviewVerificationInput,
@@ -225,6 +226,9 @@ export const opportunitiesApi = {
 
   listSignups: (id: string) =>
     request<{ participants: OpportunityParticipant[] }>(`/opportunities/${id}/signups`),
+
+  listForOrganizationSignups: (organizationId: string) =>
+    request<{ signups: OrgSignup[] }>(`/organizations/${organizationId}/signups`),
 };
 
 export const volunteerHoursApi = {

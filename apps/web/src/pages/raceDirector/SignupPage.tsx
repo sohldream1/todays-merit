@@ -4,6 +4,7 @@ import type { Organization } from "@todays-merit/shared-types";
 import { authApi, organizationsApi, ApiClientError } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { Button, Field, Input } from "../../components/ui";
+import { TermsAgreement } from "../../components/TermsAgreement";
 import { dashboardPathForRole } from "../../lib/dashboardPath";
 
 export function RaceDirectorSignupPage() {
@@ -14,6 +15,7 @@ export function RaceDirectorSignupPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const [orgQuery, setOrgQuery] = useState("");
   const [orgResults, setOrgResults] = useState<Organization[]>([]);
@@ -60,6 +62,7 @@ export function RaceDirectorSignupPage() {
         email,
         password,
         organizationId: selectedOrg.id,
+        agreedToTerms,
       });
       setUser(user);
       navigate(dashboardPathForRole(user.role));
@@ -134,6 +137,8 @@ export function RaceDirectorSignupPage() {
             </div>
           )}
         </Field>
+
+        <TermsAgreement checked={agreedToTerms} onChange={setAgreedToTerms} />
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 

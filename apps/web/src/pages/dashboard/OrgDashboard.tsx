@@ -11,6 +11,7 @@ const SECTIONS = [
   { to: "/dashboard/org/integrations", title: "Integrations", description: "Sync donors and donations to your CRM." },
   { to: "/dashboard/org/swag", title: "Swag", description: "Send thank-you items, manually or automatically." },
   { to: "/dashboard/org/team", title: "Team", description: "Invite teammates to manage this account." },
+  { to: "/dashboard/org/reports", title: "Reports", description: "Export donations, hours, and participants as CSV." },
 ];
 
 export function OrgDashboard() {

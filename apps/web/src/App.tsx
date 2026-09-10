@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { Navbar } from "./components/Navbar";
+import { Footer } from "./components/Footer";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { HomePage } from "./pages/HomePage";
 import { DirectoryPage } from "./pages/DirectoryPage";
@@ -28,14 +29,20 @@ import { BadgeFormPage } from "./pages/dashboard/BadgeFormPage";
 import { IntegrationsPage } from "./pages/dashboard/IntegrationsPage";
 import { SwagPage } from "./pages/dashboard/SwagPage";
 import { TeamPage } from "./pages/dashboard/TeamPage";
+import { ReportsPage } from "./pages/dashboard/ReportsPage";
 import { AcceptInvitePage } from "./pages/team/AcceptInvitePage";
+import { TermsPage } from "./pages/legal/TermsPage";
+import { PrivacyPage } from "./pages/legal/PrivacyPage";
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-slate-50">
       <Navbar />
+      <div className="flex-1">
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/directory" element={<DirectoryPage />} />
         <Route path="/opportunities" element={<OpportunitySearchPage />} />
         <Route path="/organizations/:id" element={<OrganizationDetailPage />} />
@@ -199,7 +206,17 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/dashboard/org/reports"
+          element={
+            <ProtectedRoute allowedRoles={["org_admin"]} redirectTo="/login/nonprofit">
+              <ReportsPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
+      </div>
+      <Footer />
     </div>
   );
 }

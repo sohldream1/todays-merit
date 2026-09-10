@@ -2,8 +2,10 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import type {
   MySignup,
+  OpportunityCategory,
   OpportunityParticipant,
   OpportunitySearchResult,
+  OrgSignup,
   VolunteerOpportunity,
   VolunteerSignup,
 } from "@todays-merit/shared-types";
@@ -271,6 +273,41 @@ export async function listOpportunitySignups(req: Request, res: Response) {
   }));
 
   res.json({ participants: result });
+}
+
+// Every signup across the org's opportunities — for CSV export/reporting.
+// Unlike listOpportunitySignups (a live per-opportunity roster), this
+// includes cancelled signups too, since a report should reflect what
+// actually happened rather than just who's currently signed up.
+export async function listOrganizationSignups(req: Request, res: Response) {
+  const claims = req.user!;
+  const organizationId = req.params.orgId;
+
+  await assertOrgAdmin(claims.sub, organizationId);
+
+  const signups = await prisma.volunteerSignup.findMany({
+    where: {
+      opportunity: {
+        organizationId,
+        // Directors are scoped to race/competition opportunities only,
+        // same restriction as everywhere else they touch signups.
+        ...(claims.role === "race_director" ? { category: { in: ["race", "competition"] } } : {}),
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    include: {
+      user: { select: { id: true, firstName: true, lastName: true, email: true } },
+      opportunity: { select: { id: true, title: true, category: true } },
+    },
+  });
+
+  const result: OrgSignup[] = signups.map((s) => ({
+    ...toSignup(s),
+    user: s.user,
+    opportunity: { ...s.opportunity, category: s.opportunity.category as OpportunityCategory },
+  }));
+
+  res.json({ signups: result });
 }
 
 export async function signUpForOpportunity(req: Request, res: Response) {

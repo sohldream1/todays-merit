@@ -6,12 +6,14 @@ import { signSession } from "../lib/jwt.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { comparePassword, hashPassword } from "../lib/password.js";
 import { prisma } from "../lib/prisma.js";
+import { agreedToTermsSchema } from "../lib/validation.js";
 
 const signupMemberSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
+  agreedToTerms: agreedToTermsSchema,
 });
 
 const signupNonprofitSchema = z.object({
@@ -19,6 +21,7 @@ const signupNonprofitSchema = z.object({
   password: z.string().min(8),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
+  agreedToTerms: agreedToTermsSchema,
   organization: z.object({
     name: z.string().min(1),
     ein: z.string().min(1),
@@ -45,6 +48,7 @@ const signupRaceDirectorSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   organizationId: z.string().uuid(),
+  agreedToTerms: agreedToTermsSchema,
 });
 
 const loginSchema = z.object({

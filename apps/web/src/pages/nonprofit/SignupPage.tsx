@@ -4,6 +4,7 @@ import type { CauseArea } from "@todays-merit/shared-types";
 import { authApi, ApiClientError } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { Button, Field, Input, Select } from "../../components/ui";
+import { TermsAgreement } from "../../components/TermsAgreement";
 
 const CAUSE_AREAS: CauseArea[] = [
   "community",
@@ -34,6 +35,7 @@ export function NonprofitSignupPage() {
   const navigate = useNavigate();
   const { setUser } = useAuth();
   const [form, setForm] = useState(initialState);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -51,6 +53,7 @@ export function NonprofitSignupPage() {
         lastName: form.lastName,
         email: form.email,
         password: form.password,
+        agreedToTerms,
         organization: {
           name: form.orgName,
           ein: form.ein,
@@ -140,6 +143,8 @@ export function NonprofitSignupPage() {
             </Field>
           </div>
         </fieldset>
+
+        <TermsAgreement checked={agreedToTerms} onChange={setAgreedToTerms} />
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 

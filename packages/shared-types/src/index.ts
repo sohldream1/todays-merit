@@ -36,6 +36,8 @@ export interface SignupMemberInput {
   password: string;
   firstName: string;
   lastName: string;
+  // Must be true — enforced server-side too. See TermsPage/PrivacyPage.
+  agreedToTerms: boolean;
 }
 
 export interface SignupNonprofitInput {
@@ -43,6 +45,7 @@ export interface SignupNonprofitInput {
   password: string;
   firstName: string;
   lastName: string;
+  agreedToTerms: boolean;
   organization: {
     name: string;
     ein: string;
@@ -64,6 +67,7 @@ export interface SignupRaceDirectorInput {
   firstName: string;
   lastName: string;
   organizationId: string;
+  agreedToTerms: boolean;
 }
 
 export interface LoginInput {
@@ -177,6 +181,7 @@ export interface AcceptOrgInviteInput {
   firstName: string;
   lastName: string;
   password: string;
+  agreedToTerms: boolean;
 }
 
 export type OpportunityStatus = "open" | "closed";
@@ -249,6 +254,13 @@ export interface MySignup extends VolunteerSignup {
 
 // The org-admin/race-director view of "who signed up" for one opportunity.
 export interface OpportunityParticipant extends VolunteerSignup {
+  user: { id: string; firstName: string; lastName: string; email: string };
+}
+
+// Every signup across the org, for reporting — includes which opportunity
+// it was for and (unlike OpportunityParticipant) cancelled signups too.
+export interface OrgSignup extends VolunteerSignup {
+  opportunity: { id: string; title: string; category: OpportunityCategory };
   user: { id: string; firstName: string; lastName: string; email: string };
 }
 

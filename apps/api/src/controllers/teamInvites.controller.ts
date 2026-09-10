@@ -6,11 +6,13 @@ import { signSession } from "../lib/jwt.js";
 import { hashPassword } from "../lib/password.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { prisma } from "../lib/prisma.js";
+import { agreedToTermsSchema } from "../lib/validation.js";
 
 const acceptSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   password: z.string().min(8),
+  agreedToTerms: agreedToTermsSchema,
 });
 
 async function findLiveInvite(token: string) {

@@ -5,7 +5,10 @@ import {
   submitForVerification,
   updateOrganization,
 } from "../controllers/organizations.controller.js";
-import { listOrganizationOpportunities } from "../controllers/opportunities.controller.js";
+import {
+  listOrganizationOpportunities,
+  listOrganizationSignups,
+} from "../controllers/opportunities.controller.js";
 import { listOrganizationHours } from "../controllers/volunteerHours.controller.js";
 import { listOrganizationCampaigns } from "../controllers/campaigns.controller.js";
 import { listOrganizationDonations } from "../controllers/donations.controller.js";
@@ -55,6 +58,12 @@ organizationsRouter.post(
   asyncHandler(submitForVerification),
 );
 organizationsRouter.get("/:orgId/opportunities", asyncHandler(listOrganizationOpportunities));
+organizationsRouter.get(
+  "/:orgId/signups",
+  requireAuth,
+  requireRole("org_admin", "race_director"),
+  asyncHandler(listOrganizationSignups),
+);
 organizationsRouter.get(
   "/:orgId/volunteer-hours",
   requireAuth,

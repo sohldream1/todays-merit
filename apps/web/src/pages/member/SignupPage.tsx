@@ -3,11 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { authApi, ApiClientError } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { Button, Field, Input } from "../../components/ui";
+import { TermsAgreement } from "../../components/TermsAgreement";
 
 export function MemberSignupPage() {
   const navigate = useNavigate();
   const { setUser } = useAuth();
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", password: "" });
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -16,7 +18,7 @@ export function MemberSignupPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      const { user } = await authApi.signupMember(form);
+      const { user } = await authApi.signupMember({ ...form, agreedToTerms });
       setUser(user);
       navigate("/dashboard/member");
     } catch (err) {
@@ -54,6 +56,8 @@ export function MemberSignupPage() {
             minLength={8}
           />
         </Field>
+
+        <TermsAgreement checked={agreedToTerms} onChange={setAgreedToTerms} />
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 

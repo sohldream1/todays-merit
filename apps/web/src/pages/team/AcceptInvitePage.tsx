@@ -5,6 +5,7 @@ import { ApiClientError, teamInvitesApi } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { dashboardPathForRole } from "../../lib/dashboardPath";
 import { Button, Field, Input } from "../../components/ui";
+import { TermsAgreement } from "../../components/TermsAgreement";
 
 export function AcceptInvitePage() {
   const { token } = useParams<{ token: string }>();
@@ -18,6 +19,7 @@ export function AcceptInvitePage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -36,7 +38,7 @@ export function AcceptInvitePage() {
     setSubmitError(null);
     setIsSubmitting(true);
     try {
-      const { user } = await teamInvitesApi.accept(token, { firstName, lastName, password });
+      const { user } = await teamInvitesApi.accept(token, { firstName, lastName, password, agreedToTerms });
       setUser(user);
       navigate(dashboardPathForRole(user.role));
     } catch (err) {
@@ -84,6 +86,8 @@ export function AcceptInvitePage() {
             minLength={8}
           />
         </Field>
+
+        <TermsAgreement checked={agreedToTerms} onChange={setAgreedToTerms} />
 
         {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
