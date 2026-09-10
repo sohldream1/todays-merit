@@ -5,6 +5,8 @@ import { assertOrgAdmin } from "../lib/authz.js";
 import { getOrRefreshRating, refreshRatingInBackground, toCharityRatingDto } from "../ratings/ratingsService.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { prisma } from "../lib/prisma.js";
+import { notifyPlatformAdmins } from "../lib/notifications.js";
+import { verificationSubmittedEmail } from "../emails/verificationEmails.js";
 
 const CAUSE_AREAS = [
   "community",
@@ -16,8 +18,6 @@ const CAUSE_AREAS = [
   "other",
 ] as const;
 
-const VERIFICATION_STATUSES = ["unverified", "pending", "verified", "rejected"] as const;
-
 const listFiltersSchema = z.object({
   q: z.string().min(1).optional(),
   causeArea: z.enum(CAUSE_AREAS).optional(),
@@ -26,6 +26,10 @@ const listFiltersSchema = z.object({
   country: z.string().min(1).optional(),
 });
 
+// Deliberately no verificationStatus field here — an org can no longer set
+// its own verification status. It moves to "pending" via
+// submitForVerification below, and only a platform admin can move it to
+// "verified"/"rejected" (see platformAdmin.controller.ts).
 const updateOrganizationSchema = z.object({
   name: z.string().min(1).optional(),
   missionStatement: z.string().optional(),
@@ -35,7 +39,6 @@ const updateOrganizationSchema = z.object({
   city: z.string().min(1).optional(),
   state: z.string().min(1).optional(),
   country: z.string().min(1).optional(),
-  verificationStatus: z.enum(VERIFICATION_STATUSES).optional(),
 });
 
 export function toOrganization(
@@ -51,6 +54,7 @@ export function toOrganization(
     state: string | null;
     country: string | null;
     verificationStatus: string;
+    verificationNotes: string | null;
     subscriptionTier: string;
     createdAt: Date;
     updatedAt: Date;
@@ -69,6 +73,7 @@ export function toOrganization(
     state: org.state,
     country: org.country,
     verificationStatus: org.verificationStatus as Organization["verificationStatus"],
+    verificationNotes: org.verificationNotes,
     subscriptionTier: org.subscriptionTier as Organization["subscriptionTier"],
     rating,
     createdAt: org.createdAt.toISOString(),
@@ -139,6 +144,33 @@ export async function updateOrganization(req: Request, res: Response) {
     where: { id: organizationId },
     data: input,
   });
+
+  res.json({ organization: toOrganization(organization) });
+}
+
+// Moves an org from unverified/rejected into the review queue. Resubmitting
+// after a rejection clears the old notes — they'd otherwise read as stale
+// once the org has (presumably) addressed whatever the reviewer flagged.
+export async function submitForVerification(req: Request, res: Response) {
+  const claims = req.user!;
+  const organizationId = req.params.id;
+
+  await assertOrgAdmin(claims.sub, organizationId);
+
+  const existing = await prisma.organization.findUnique({ where: { id: organizationId } });
+  if (!existing) {
+    throw new ApiError(404, "Organization not found");
+  }
+  if (existing.verificationStatus !== "unverified" && existing.verificationStatus !== "rejected") {
+    throw new ApiError(400, "This organization is already verified or awaiting review");
+  }
+
+  const organization = await prisma.organization.update({
+    where: { id: organizationId },
+    data: { verificationStatus: "pending", verificationNotes: null },
+  });
+
+  await notifyPlatformAdmins(verificationSubmittedEmail(organization.name));
 
   res.json({ organization: toOrganization(organization) });
 }

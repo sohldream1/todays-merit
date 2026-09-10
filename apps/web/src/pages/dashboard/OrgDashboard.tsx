@@ -10,6 +10,7 @@ const SECTIONS = [
   { to: "/dashboard/org/badges", title: "Badges", description: "Set auto-award milestones for volunteers and donors." },
   { to: "/dashboard/org/integrations", title: "Integrations", description: "Sync donors and donations to your CRM." },
   { to: "/dashboard/org/swag", title: "Swag", description: "Send thank-you items, manually or automatically." },
+  { to: "/dashboard/org/team", title: "Team", description: "Invite teammates to manage this account." },
 ];
 
 export function OrgDashboard() {

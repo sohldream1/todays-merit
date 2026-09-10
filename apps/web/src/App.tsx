@@ -11,9 +11,11 @@ import { NonprofitSignupPage } from "./pages/nonprofit/SignupPage";
 import { NonprofitLoginPage } from "./pages/nonprofit/LoginPage";
 import { RaceDirectorSignupPage } from "./pages/raceDirector/SignupPage";
 import { RaceDirectorLoginPage } from "./pages/raceDirector/LoginPage";
+import { PlatformAdminLoginPage } from "./pages/platformAdmin/LoginPage";
 import { MemberDashboard } from "./pages/dashboard/MemberDashboard";
 import { OrgDashboard } from "./pages/dashboard/OrgDashboard";
 import { RaceDirectorDashboard } from "./pages/dashboard/RaceDirectorDashboard";
+import { PlatformAdminDashboard } from "./pages/dashboard/PlatformAdminDashboard";
 import { OrgProfileEditPage } from "./pages/dashboard/OrgProfileEditPage";
 import { OpportunitiesListPage } from "./pages/dashboard/OpportunitiesListPage";
 import { OpportunityFormPage } from "./pages/dashboard/OpportunityFormPage";
@@ -25,6 +27,8 @@ import { BadgesListPage } from "./pages/dashboard/BadgesListPage";
 import { BadgeFormPage } from "./pages/dashboard/BadgeFormPage";
 import { IntegrationsPage } from "./pages/dashboard/IntegrationsPage";
 import { SwagPage } from "./pages/dashboard/SwagPage";
+import { TeamPage } from "./pages/dashboard/TeamPage";
+import { AcceptInvitePage } from "./pages/team/AcceptInvitePage";
 
 export default function App() {
   return (
@@ -41,6 +45,8 @@ export default function App() {
         <Route path="/login/nonprofit" element={<NonprofitLoginPage />} />
         <Route path="/signup/race-director" element={<RaceDirectorSignupPage />} />
         <Route path="/login/race-director" element={<RaceDirectorLoginPage />} />
+        <Route path="/login/platform-admin" element={<PlatformAdminLoginPage />} />
+        <Route path="/join-org/:token" element={<AcceptInvitePage />} />
         <Route
           path="/dashboard/member"
           element={
@@ -62,6 +68,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={["race_director"]} redirectTo="/login/race-director">
               <RaceDirectorDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/platform-admin"
+          element={
+            <ProtectedRoute allowedRoles={["platform_admin"]} redirectTo="/login/platform-admin">
+              <PlatformAdminDashboard />
             </ProtectedRoute>
           }
         />
@@ -174,6 +188,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={["org_admin"]} redirectTo="/login/nonprofit">
               <SwagPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/org/team"
+          element={
+            <ProtectedRoute allowedRoles={["org_admin"]} redirectTo="/login/nonprofit">
+              <TeamPage />
             </ProtectedRoute>
           }
         />

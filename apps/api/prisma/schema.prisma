@@ -177,6 +177,7 @@ model Organization {
   swagProducts           SwagProduct[]
   swagOrders             SwagOrder[]
   swagAutoRules          SwagAutoRule[]
+  orgInvites             OrgInvite[]
 
   @@map("organizations")
 }
@@ -211,6 +212,7 @@ model User {
   userBadges        UserBadge[]
   userTiers         UserTier[]
   swagOrders        SwagOrder[]
+  sentOrgInvites    OrgInvite[]
 
   @@map("users")
 }
@@ -227,6 +229,28 @@ model OrgAdmin {
 
   @@unique([userId, organizationId])
   @@map("org_admins")
+}
+
+// A pending "join this org's team" invite — a teammate doesn't exist as a
+// User until they accept, so this can't just be an OrgAdmin row with a null
+// userId. Always resolves to OrgAdminRole "admin" on acceptance (see
+// team.controller.ts); there's no role picker on the invite itself since
+// today owner/admin/editor grant identical access everywhere except team
+// management, which is owner-only.
+model OrgInvite {
+  id              String    @id @default(uuid())
+  organizationId  String    @map("organization_id")
+  email           String
+  token           String    @unique
+  invitedByUserId String    @map("invited_by_user_id")
+  expiresAt       DateTime  @map("expires_at")
+  acceptedAt      DateTime? @map("accepted_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@map("org_invites")
 }
 
 model VolunteerOpportunity {

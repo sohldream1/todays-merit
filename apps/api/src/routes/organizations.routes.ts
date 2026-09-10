@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getOrganization,
   listOrganizations,
+  submitForVerification,
   updateOrganization,
 } from "../controllers/organizations.controller.js";
 import { listOrganizationOpportunities } from "../controllers/opportunities.controller.js";
@@ -28,6 +29,12 @@ import {
   listSwagProducts,
   listSwagRecipients,
 } from "../controllers/swag.controller.js";
+import {
+  getTeamOverview,
+  inviteTeammate,
+  removeTeammate,
+  revokeInvite,
+} from "../controllers/team.controller.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
@@ -40,6 +47,12 @@ organizationsRouter.patch(
   requireAuth,
   requireRole("org_admin"),
   asyncHandler(updateOrganization),
+);
+organizationsRouter.post(
+  "/:id/verification/submit",
+  requireAuth,
+  requireRole("org_admin"),
+  asyncHandler(submitForVerification),
 );
 organizationsRouter.get("/:orgId/opportunities", asyncHandler(listOrganizationOpportunities));
 organizationsRouter.get(
@@ -153,4 +166,29 @@ organizationsRouter.post(
   requireAuth,
   requireRole("org_admin"),
   asyncHandler(importSwagCatalog),
+);
+
+organizationsRouter.get(
+  "/:orgId/team",
+  requireAuth,
+  requireRole("org_admin"),
+  asyncHandler(getTeamOverview),
+);
+organizationsRouter.post(
+  "/:orgId/team/invites",
+  requireAuth,
+  requireRole("org_admin"),
+  asyncHandler(inviteTeammate),
+);
+organizationsRouter.delete(
+  "/:orgId/team/invites/:inviteId",
+  requireAuth,
+  requireRole("org_admin"),
+  asyncHandler(revokeInvite),
+);
+organizationsRouter.delete(
+  "/:orgId/team/members/:orgAdminId",
+  requireAuth,
+  requireRole("org_admin"),
+  asyncHandler(removeTeammate),
 );

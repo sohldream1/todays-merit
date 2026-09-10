@@ -54,7 +54,7 @@ const loginSchema = z.object({
 
 const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days, matches default JWT_EXPIRES_IN
 
-function setSessionCookie(res: Response, token: string) {
+export function setSessionCookie(res: Response, token: string) {
   res.cookie(env.cookieName, token, {
     httpOnly: true,
     secure: env.isProduction,
@@ -66,7 +66,14 @@ function setSessionCookie(res: Response, token: string) {
 
 async function resolveRoleAndOrg(
   userId: string,
+  email: string,
 ): Promise<{ role: AccountRole; organizationId: string | null }> {
+  // Checked first and takes precedence over any org membership — platform
+  // staff reviewing verification submissions isn't org-scoped.
+  if (env.platformAdminEmails.includes(email.toLowerCase())) {
+    return { role: "platform_admin", organizationId: null };
+  }
+
   const orgAdmin = await prisma.orgAdmin.findFirst({
     where: { userId },
     orderBy: { createdAt: "asc" },
@@ -83,7 +90,7 @@ async function resolveRoleAndOrg(
   return { role: "org_admin", organizationId: orgAdmin.organizationId };
 }
 
-function toAuthUser(
+export function toAuthUser(
   user: { id: string; email: string; firstName: string; lastName: string; profilePhotoUrl: string | null },
   role: AccountRole,
   organizationId: string | null,
@@ -243,7 +250,7 @@ export async function login(req: Request, res: Response) {
     throw new ApiError(401, "Invalid email or password");
   }
 
-  const { role, organizationId } = await resolveRoleAndOrg(user.id);
+  const { role, organizationId } = await resolveRoleAndOrg(user.id, user.email);
 
   const token = signSession({ sub: user.id, email: user.email, role, organizationId });
   setSessionCookie(res, token);

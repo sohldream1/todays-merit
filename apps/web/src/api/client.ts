@@ -1,4 +1,5 @@
 import type {
+  AcceptOrgInviteInput,
   AuthUser,
   AwardBadgeInput,
   Badge,
@@ -15,6 +16,7 @@ import type {
   HourVerificationStatus,
   IntegrationProvider,
   IntegrationSyncRecord,
+  InviteTeammateInput,
   LoginInput,
   LogHoursInput,
   MyAddress,
@@ -32,8 +34,10 @@ import type {
   OpportunitySearchResult,
   OrgDonation,
   OrgIntegration,
+  OrgInviteDetails,
   OrgVolunteerHour,
   RecommendationsResult,
+  ReviewVerificationInput,
   SignupMemberInput,
   SignupNonprofitInput,
   SignupRaceDirectorInput,
@@ -41,6 +45,7 @@ import type {
   SwagOrder,
   SwagProduct,
   SwagRecipientCandidate,
+  TeamOverview,
   Tier,
   UpdateAddressInput,
   UpdateBadgeInput,
@@ -133,6 +138,50 @@ export const organizationsApi = {
   update: (id: string, input: UpdateOrganizationInput) =>
     request<{ organization: Organization }>(`/organizations/${id}`, {
       method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+
+  submitVerification: (id: string) =>
+    request<{ organization: Organization }>(`/organizations/${id}/verification/submit`, {
+      method: "POST",
+    }),
+};
+
+export const teamApi = {
+  get: (organizationId: string) => request<TeamOverview>(`/organizations/${organizationId}/team`),
+
+  invite: (organizationId: string, input: InviteTeammateInput) =>
+    request<void>(`/organizations/${organizationId}/team/invites`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  revokeInvite: (organizationId: string, inviteId: string) =>
+    request<void>(`/organizations/${organizationId}/team/invites/${inviteId}`, { method: "DELETE" }),
+
+  removeMember: (organizationId: string, orgAdminId: string) =>
+    request<void>(`/organizations/${organizationId}/team/members/${orgAdminId}`, { method: "DELETE" }),
+};
+
+export const teamInvitesApi = {
+  get: (token: string) => request<OrgInviteDetails>(`/team-invites/${token}`),
+
+  accept: (token: string, input: AcceptOrgInviteInput) =>
+    request<{ user: AuthUser }>(`/team-invites/${token}/accept`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+};
+
+export const platformAdminApi = {
+  listOrganizations: (status?: Organization["verificationStatus"]) => {
+    const qs = status ? `?status=${status}` : "";
+    return request<{ organizations: Organization[] }>(`/platform-admin/organizations${qs}`);
+  },
+
+  review: (organizationId: string, input: ReviewVerificationInput) =>
+    request<{ organization: Organization }>(`/platform-admin/organizations/${organizationId}/review`, {
+      method: "POST",
       body: JSON.stringify(input),
     }),
 };

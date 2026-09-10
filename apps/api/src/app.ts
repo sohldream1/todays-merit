@@ -10,7 +10,9 @@ import { integrationsRouter } from "./routes/integrations.routes.js";
 import { meRouter } from "./routes/me.routes.js";
 import { opportunitiesRouter } from "./routes/opportunities.routes.js";
 import { organizationsRouter } from "./routes/organizations.routes.js";
+import { platformAdminRouter } from "./routes/platformAdmin.routes.js";
 import { swagRouter } from "./routes/swag.routes.js";
+import { teamInvitesRouter } from "./routes/teamInvites.routes.js";
 import { tiersRouter } from "./routes/tiers.routes.js";
 import { volunteerHoursRouter } from "./routes/volunteerHours.routes.js";
 
@@ -33,6 +35,8 @@ app.use("/api/volunteer-hours", volunteerHoursRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/swag", swagRouter);
 app.use("/api/tiers", tiersRouter);
+app.use("/api/platform-admin", platformAdminRouter);
+app.use("/api/team-invites", teamInvitesRouter);
 app.use("/api/me", meRouter);
 
 app.use(errorHandler);

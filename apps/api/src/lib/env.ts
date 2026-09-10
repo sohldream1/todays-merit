@@ -19,6 +19,16 @@ export const env = {
 
   integrationsEncryptionKey: required("INTEGRATIONS_ENCRYPTION_KEY"),
 
+  // Platform staff who can review nonprofit verification submissions —
+  // there's no self-serve signup for this role (unlike member/nonprofit/
+  // race-director) since it grants authority over every org on the
+  // platform, so it's provisioned by adding an email here rather than
+  // through a public form. Comma-separated, case-insensitive.
+  platformAdminEmails: (process.env.PLATFORM_ADMIN_EMAILS || "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+
   // Real Salesforce Connected App credentials. When absent, the Salesforce
   // connector runs in mock mode (no live API calls).
   salesforce: {
@@ -84,6 +94,15 @@ export const env = {
   swagCom: {
     apiKey: process.env.SWAG_COM_API_KEY || null,
     apiUrl: process.env.SWAG_COM_API_URL || "https://api.swag.com/v1",
+  },
+
+  // Real transactional email via Resend. When RESEND_API_KEY is absent,
+  // emails are logged to the console instead of sent — used for nonprofit
+  // verification notifications (submission, approval, rejection) so that
+  // workflow works out of the box with no mail provider configured.
+  email: {
+    apiKey: process.env.RESEND_API_KEY || null,
+    from: process.env.EMAIL_FROM || "Today's Merit <notifications@todaysmerit.example>",
   },
 
   // Real Anthropic API key for AI-generated charity recommendations. This

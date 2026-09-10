@@ -97,6 +97,9 @@ export interface Organization {
   state: string | null;
   country: string | null;
   verificationStatus: VerificationStatus;
+  // Set by a platform admin on rejection (what to fix before resubmitting);
+  // cleared automatically when the org resubmits for review.
+  verificationNotes: string | null;
   subscriptionTier: SubscriptionTier;
   rating: CharityRating | null;
   createdAt: string;
@@ -111,6 +114,8 @@ export interface OrganizationFilters {
   country?: string;
 }
 
+// No verificationStatus here — an org can never set its own status. See
+// SubmitVerificationInput / ReviewVerificationInput for the real workflow.
 export interface UpdateOrganizationInput {
   name?: string;
   missionStatement?: string;
@@ -120,7 +125,58 @@ export interface UpdateOrganizationInput {
   city?: string;
   state?: string;
   country?: string;
-  verificationStatus?: VerificationStatus;
+}
+
+export type VerificationDecision = "verified" | "rejected";
+
+export interface ReviewVerificationInput {
+  decision: VerificationDecision;
+  // Required when rejecting (what the org needs to fix); optional context
+  // when approving.
+  notes?: string;
+}
+
+// A teammate already on the org's account. Excludes race_director rows —
+// those come from the separate race-director signup flow, not the team
+// invite flow, and aren't managed from the team page.
+export interface TeamMember {
+  id: string;
+  role: Exclude<OrgAdminRole, "race_director">;
+  joinedAt: string;
+  user: { id: string; firstName: string; lastName: string; email: string };
+}
+
+// A pending invite that hasn't been accepted yet.
+export interface TeamInvite {
+  id: string;
+  email: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface TeamOverview {
+  members: TeamMember[];
+  invites: TeamInvite[];
+  // The current viewer's own role in this org — only "owner" can invite or
+  // remove teammates; the UI uses this to show/hide those controls.
+  currentUserRole: Exclude<OrgAdminRole, "race_director">;
+}
+
+export interface InviteTeammateInput {
+  email: string;
+}
+
+// What the accept-invite page shows before the recipient has created an
+// account — deliberately minimal (no organization details beyond the name).
+export interface OrgInviteDetails {
+  organizationName: string;
+  email: string;
+}
+
+export interface AcceptOrgInviteInput {
+  firstName: string;
+  lastName: string;
+  password: string;
 }
 
 export type OpportunityStatus = "open" | "closed";

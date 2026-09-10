@@ -17,3 +17,16 @@ export async function assertOrgAdmin(userId: string, organizationId: string): Pr
     throw new ApiError(403, "You don't have access to this organization");
   }
 }
+
+// Stricter than assertOrgAdmin — only the org's owner(s) can manage its
+// team (invite/remove teammates). Everyone with an "admin" row has the same
+// access to everything else; this is the one thing that's owner-only.
+export async function assertOrgOwner(userId: string, organizationId: string): Promise<void> {
+  const orgAdmin = await prisma.orgAdmin.findUnique({
+    where: { userId_organizationId: { userId, organizationId } },
+  });
+
+  if (!orgAdmin || orgAdmin.role !== "owner") {
+    throw new ApiError(403, "Only an organization owner can manage the team");
+  }
+}

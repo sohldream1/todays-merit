@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import type { CauseArea, Organization, VerificationStatus } from "@todays-merit/shared-types";
+import type { CauseArea, Organization } from "@todays-merit/shared-types";
 import { ApiClientError, organizationsApi } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
-import { Button, buttonClasses, Field, Input, Select } from "../../components/ui";
+import { Button, buttonClasses, Card, Field, Input, Select, StatusBadge } from "../../components/ui";
 
 const CAUSE_AREAS: CauseArea[] = [
   "community",
@@ -15,7 +15,96 @@ const CAUSE_AREAS: CauseArea[] = [
   "other",
 ];
 
-const VERIFICATION_STATUSES: VerificationStatus[] = ["unverified", "pending", "verified", "rejected"];
+const VERIFICATION_TONE: Record<Organization["verificationStatus"], "neutral" | "warning" | "success" | "danger"> = {
+  unverified: "neutral",
+  pending: "warning",
+  verified: "success",
+  rejected: "danger",
+};
+
+const VERIFICATION_LABELS: Record<Organization["verificationStatus"], string> = {
+  unverified: "Unverified",
+  pending: "Pending review",
+  verified: "Verified",
+  rejected: "Rejected",
+};
+
+function VerificationCard({
+  organization,
+  onSubmitted,
+}: {
+  organization: Organization;
+  onSubmitted: (org: Organization) => void;
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const { organization: updated } = await organizationsApi.submitVerification(organization.id);
+      onSubmitted(updated);
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Something went wrong");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Card className="mt-8">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium text-slate-900">Verification status</h2>
+        <StatusBadge tone={VERIFICATION_TONE[organization.verificationStatus]}>
+          {VERIFICATION_LABELS[organization.verificationStatus]}
+        </StatusBadge>
+      </div>
+
+      {organization.verificationStatus === "unverified" && (
+        <>
+          <p className="mt-2 text-sm text-slate-500">
+            Submit your organization for review — a platform admin checks it against your EIN and mission
+            before marking it verified.
+          </p>
+          <Button size="sm" className="mt-3" disabled={isSubmitting} onClick={handleSubmit}>
+            {isSubmitting ? "Submitting…" : "Submit for verification"}
+          </Button>
+        </>
+      )}
+
+      {organization.verificationStatus === "pending" && (
+        <p className="mt-2 text-sm text-slate-500">
+          Your submission is in the review queue. This page will update once a platform admin makes a
+          decision — you'll also get an email when they do.
+        </p>
+      )}
+
+      {organization.verificationStatus === "verified" && (
+        <p className="mt-2 text-sm text-slate-500">
+          Your organization is verified — the badge shows on your directory listing and profile.
+        </p>
+      )}
+
+      {organization.verificationStatus === "rejected" && (
+        <>
+          {organization.verificationNotes && (
+            <div className="mt-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
+              <span className="font-medium">Reviewer notes: </span>
+              {organization.verificationNotes}
+            </div>
+          )}
+          <p className="mt-2 text-sm text-slate-500">Address the notes above, then resubmit for review.</p>
+          <Button size="sm" className="mt-3" disabled={isSubmitting} onClick={handleSubmit}>
+            {isSubmitting ? "Submitting…" : "Resubmit for verification"}
+          </Button>
+        </>
+      )}
+
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+    </Card>
+  );
+}
 
 export function OrgProfileEditPage() {
   const { user } = useAuth();
@@ -51,7 +140,6 @@ export function OrgProfileEditPage() {
         city: organization.city || undefined,
         state: organization.state || undefined,
         country: organization.country || undefined,
-        verificationStatus: organization.verificationStatus,
       });
       setOrganization(updated);
       setSuccessMessage("Profile updated.");
@@ -118,22 +206,6 @@ export function OrgProfileEditPage() {
           </Field>
         </div>
 
-        <Field label="Verification status">
-          <Select
-            value={organization.verificationStatus}
-            onChange={(e) => update("verificationStatus", e.target.value as VerificationStatus)}
-          >
-            {VERIFICATION_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <span className="-mt-2 text-xs text-slate-400">
-          Placeholder for the full vetting workflow — set manually for now.
-        </span>
-
         {error && <p className="text-sm text-red-600">{error}</p>}
         {successMessage && <p className="text-sm text-green-600">{successMessage}</p>}
 
@@ -141,6 +213,8 @@ export function OrgProfileEditPage() {
           {isSaving ? "Saving…" : "Save changes"}
         </Button>
       </form>
+
+      <VerificationCard organization={organization} onSubmitted={setOrganization} />
     </div>
   );
 }
