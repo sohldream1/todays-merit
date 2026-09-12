@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { MyVolunteerHour, OrgVolunteerHour, VolunteerHour } from "@todays-merit/shared-types";
 import { assertOrgAdmin } from "../lib/authz.js";
 import { evaluateOrgBadges, evaluateTiers } from "../lib/gamification.js";
+import { giveKudos, removeKudos } from "../lib/kudos.js";
 import { syncVolunteerHourById } from "../integrations/syncService.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { prisma } from "../lib/prisma.js";
@@ -138,4 +139,22 @@ export async function verifyHours(req: Request, res: Response) {
   }
 
   res.json({ hour: toVolunteerHour(hour) });
+}
+
+export async function giveHourKudos(req: Request, res: Response) {
+  const claims = req.user!;
+  const hour = await prisma.volunteerHour.findUnique({ where: { id: req.params.id } });
+  if (!hour) {
+    throw new ApiError(404, "Hour log not found");
+  }
+  if (hour.userId === claims.sub) {
+    throw new ApiError(400, "You can't give kudos on your own activity");
+  }
+
+  res.json(await giveKudos(claims.sub, { volunteerHourId: hour.id }));
+}
+
+export async function removeHourKudos(req: Request, res: Response) {
+  const claims = req.user!;
+  res.json(await removeKudos(claims.sub, { volunteerHourId: req.params.id }));
 }

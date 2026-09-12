@@ -213,6 +213,7 @@ model User {
   userTiers         UserTier[]
   swagOrders        SwagOrder[]
   sentOrgInvites    OrgInvite[]
+  kudosGiven        Kudos[]
 
   @@map("users")
 }
@@ -301,6 +302,7 @@ model VolunteerHour {
   user         User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
   organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   opportunity  VolunteerOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  kudos        Kudos[]
 
   @@map("volunteer_hours")
 }
@@ -335,8 +337,32 @@ model Donation {
   user         User      @relation(fields: [userId], references: [id], onDelete: Restrict)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   campaign     Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  kudos        Kudos[]
 
   @@map("donations")
+}
+
+// A reaction on one activity-feed item — always exactly one of
+// volunteerHourId/donationId (enforced at the API layer; Prisma has no
+// native polymorphic relation, so this follows the same nullable-typed-FK
+// pattern as SwagAutoRule's badgeId/tierId). The two @@unique constraints
+// each only bite when their own column is non-null (Postgres treats NULLs
+// as distinct), so together they enforce "one kudos per user per activity"
+// without blocking a user from kudos-ing many different activities.
+model Kudos {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  volunteerHourId String?  @map("volunteer_hour_id")
+  donationId      String?  @map("donation_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  volunteerHour VolunteerHour? @relation(fields: [volunteerHourId], references: [id], onDelete: Cascade)
+  donation      Donation?      @relation(fields: [donationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, volunteerHourId])
+  @@unique([userId, donationId])
+  @@map("kudos")
 }
 
 model Badge {

@@ -281,6 +281,34 @@ export interface OrgSignup extends VolunteerSignup {
 
 export type HourVerificationStatus = "self_reported" | "verified_by_org";
 
+export interface KudosResult {
+  kudosCount: number;
+  // Whether the CURRENT viewer has given kudos — not the total count.
+  hasGivenKudos: boolean;
+}
+
+export type ActivityFeedItemType = "volunteer_hours" | "donation";
+
+// One row of an org's activity feed — a merged, time-ordered view over
+// VolunteerHour and Donation, not its own table. Donation amounts are
+// deliberately left out here (unlike OrgDonation/MyDonation): unlike a
+// logged hour, a dollar figure feels like it should stay between the donor
+// and the org, even though other members can see that a donation happened.
+export interface ActivityFeedItem extends KudosResult {
+  id: string;
+  type: ActivityFeedItemType;
+  occurredAt: string;
+  user: { id: string; firstName: string; lastName: string };
+  hours?: number;
+  verificationStatus?: HourVerificationStatus;
+  opportunityTitle?: string | null;
+  campaignTitle?: string | null;
+}
+
+export interface ActivityFeed {
+  items: ActivityFeedItem[];
+}
+
 export interface VolunteerHour {
   id: string;
   userId: string;

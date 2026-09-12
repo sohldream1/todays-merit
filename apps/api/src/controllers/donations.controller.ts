@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Donation, MyDonation, OrgDonation } from "@todays-merit/shared-types";
 import { assertOrgAdmin } from "../lib/authz.js";
 import { evaluateOrgBadges } from "../lib/gamification.js";
+import { giveKudos, removeKudos } from "../lib/kudos.js";
 import { syncDonationById } from "../integrations/syncService.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { prisma } from "../lib/prisma.js";
@@ -113,4 +114,22 @@ export async function listOrganizationDonations(req: Request, res: Response) {
   }));
 
   res.json({ donations: result });
+}
+
+export async function giveDonationKudos(req: Request, res: Response) {
+  const claims = req.user!;
+  const donation = await prisma.donation.findUnique({ where: { id: req.params.id } });
+  if (!donation) {
+    throw new ApiError(404, "Donation not found");
+  }
+  if (donation.userId === claims.sub) {
+    throw new ApiError(400, "You can't give kudos on your own activity");
+  }
+
+  res.json(await giveKudos(claims.sub, { donationId: donation.id }));
+}
+
+export async function removeDonationKudos(req: Request, res: Response) {
+  const claims = req.user!;
+  res.json(await removeKudos(claims.sub, { donationId: req.params.id }));
 }

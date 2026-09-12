@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { Badge, Campaign, OpportunityCategory, Organization, VolunteerOpportunity } from "@todays-merit/shared-types";
 import { ApiClientError, badgesApi, campaignsApi, meApi, opportunitiesApi, organizationsApi } from "../api/client";
+import { ActivityFeedSection } from "../components/ActivityFeedSection";
 import { MeritBadge } from "../components/MeritBadge";
 import { RatingBadges } from "../components/RatingBadges";
 import { Button, buttonClasses, Card, Input, StatusBadge } from "../components/ui";
@@ -329,6 +330,8 @@ export function OrganizationDetailPage() {
           </div>
         </>
       )}
+
+      <ActivityFeedSection organizationId={organization.id} />
     </div>
   );
 }

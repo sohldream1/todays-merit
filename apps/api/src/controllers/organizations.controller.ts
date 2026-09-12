@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import type { Organization } from "@todays-merit/shared-types";
+import type { ActivityFeed, ActivityFeedItem, Organization } from "@todays-merit/shared-types";
 import { assertOrgAdmin } from "../lib/authz.js";
 import { getOrRefreshRating, refreshRatingInBackground, toCharityRatingDto } from "../ratings/ratingsService.js";
 import { ApiError } from "../middleware/errorHandler.js";
@@ -173,4 +173,90 @@ export async function submitForVerification(req: Request, res: Response) {
   await notifyPlatformAdmins(verificationSubmittedEmail(organization.name));
 
   res.json({ organization: toOrganization(organization) });
+}
+
+const FEED_ITEMS_PER_TYPE = 30;
+
+// A merged, time-ordered view over VolunteerHour and Donation — not a table
+// of its own. Requires login (so it's a "members' wall," not a public
+// firehose of who-gave-what) but isn't restricted to this org's own admins
+// or participants; anyone with an account can see any org's feed, same as
+// anyone can already view an org's public profile page.
+//
+// Self-reported hours are included alongside verified ones (labeled, not
+// hidden) — they're already low-stakes since only verified hours count
+// toward badges/tiers (see gamification.ts). Donation amounts are
+// deliberately left out; see the ActivityFeedItem comment in shared-types.
+export async function getOrganizationFeed(req: Request, res: Response) {
+  const organizationId = req.params.orgId;
+  const viewerId = req.user?.sub;
+
+  const [hours, donations] = await Promise.all([
+    prisma.volunteerHour.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "desc" },
+      take: FEED_ITEMS_PER_TYPE,
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true } },
+        opportunity: { select: { title: true } },
+      },
+    }),
+    prisma.donation.findMany({
+      where: { organizationId, paymentStatus: "completed" },
+      orderBy: { donatedAt: "desc" },
+      take: FEED_ITEMS_PER_TYPE,
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true } },
+        campaign: { select: { title: true } },
+      },
+    }),
+  ]);
+
+  const hourIds = hours.map((h) => h.id);
+  const donationIds = donations.map((d) => d.id);
+
+  const [hourKudosCounts, donationKudosCounts, myHourKudos, myDonationKudos] = await Promise.all([
+    prisma.kudos.groupBy({ by: ["volunteerHourId"], where: { volunteerHourId: { in: hourIds } }, _count: true }),
+    prisma.kudos.groupBy({ by: ["donationId"], where: { donationId: { in: donationIds } }, _count: true }),
+    viewerId
+      ? prisma.kudos.findMany({ where: { userId: viewerId, volunteerHourId: { in: hourIds } } })
+      : Promise.resolve([]),
+    viewerId
+      ? prisma.kudos.findMany({ where: { userId: viewerId, donationId: { in: donationIds } } })
+      : Promise.resolve([]),
+  ]);
+
+  const hourKudosMap = new Map(hourKudosCounts.map((c) => [c.volunteerHourId, c._count]));
+  const donationKudosMap = new Map(donationKudosCounts.map((c) => [c.donationId, c._count]));
+  const myHourKudosSet = new Set(myHourKudos.map((k) => k.volunteerHourId));
+  const myDonationKudosSet = new Set(myDonationKudos.map((k) => k.donationId));
+
+  const hourItems: ActivityFeedItem[] = hours.map((h) => ({
+    id: h.id,
+    type: "volunteer_hours",
+    occurredAt: h.createdAt.toISOString(),
+    user: h.user,
+    hours: Number(h.hours),
+    verificationStatus: h.verificationStatus as ActivityFeedItem["verificationStatus"],
+    opportunityTitle: h.opportunity?.title ?? null,
+    kudosCount: hourKudosMap.get(h.id) ?? 0,
+    hasGivenKudos: myHourKudosSet.has(h.id),
+  }));
+
+  const donationItems: ActivityFeedItem[] = donations.map((d) => ({
+    id: d.id,
+    type: "donation",
+    occurredAt: d.donatedAt.toISOString(),
+    user: d.user,
+    campaignTitle: d.campaign?.title ?? null,
+    kudosCount: donationKudosMap.get(d.id) ?? 0,
+    hasGivenKudos: myDonationKudosSet.has(d.id),
+  }));
+
+  const items = [...hourItems, ...donationItems]
+    .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+    .slice(0, FEED_ITEMS_PER_TYPE);
+
+  const result: ActivityFeed = { items };
+  res.json(result);
 }

@@ -1,5 +1,6 @@
 import type {
   AcceptOrgInviteInput,
+  ActivityFeed,
   AuthUser,
   AwardBadgeInput,
   Badge,
@@ -17,6 +18,7 @@ import type {
   IntegrationProvider,
   IntegrationSyncRecord,
   InviteTeammateInput,
+  KudosResult,
   Leaderboard,
   LoginInput,
   LogHoursInput,
@@ -147,6 +149,15 @@ export const organizationsApi = {
     request<{ organization: Organization }>(`/organizations/${id}/verification/submit`, {
       method: "POST",
     }),
+
+  getFeed: (id: string) => request<ActivityFeed>(`/organizations/${id}/feed`),
+};
+
+export const kudosApi = {
+  giveOnHour: (id: string) => request<KudosResult>(`/volunteer-hours/${id}/kudos`, { method: "POST" }),
+  removeOnHour: (id: string) => request<KudosResult>(`/volunteer-hours/${id}/kudos`, { method: "DELETE" }),
+  giveOnDonation: (id: string) => request<KudosResult>(`/donations/${id}/kudos`, { method: "POST" }),
+  removeOnDonation: (id: string) => request<KudosResult>(`/donations/${id}/kudos`, { method: "DELETE" }),
 };
 
 export const teamApi = {

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getOrganization,
+  getOrganizationFeed,
   listOrganizations,
   submitForVerification,
   updateOrganization,
@@ -58,6 +59,7 @@ organizationsRouter.post(
   asyncHandler(submitForVerification),
 );
 organizationsRouter.get("/:orgId/opportunities", asyncHandler(listOrganizationOpportunities));
+organizationsRouter.get("/:orgId/feed", requireAuth, asyncHandler(getOrganizationFeed));
 organizationsRouter.get(
   "/:orgId/signups",
   requireAuth,
