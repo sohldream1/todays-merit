@@ -231,6 +231,21 @@ export interface UpdateOpportunityInput {
   category?: OpportunityCategory;
 }
 
+// One row of a competition's standings — ranked by verified hours only
+// (self-reported hours aren't counted, since they're unverified and the
+// whole point of a competition is a trustworthy "who's winning"). Ties
+// share a rank, sports-style (1, 2, 2, 4), rather than breaking arbitrarily.
+export interface LeaderboardEntry {
+  rank: number;
+  user: { id: string; firstName: string; lastName: string };
+  verifiedHours: number;
+}
+
+export interface Leaderboard {
+  opportunity: { id: string; title: string };
+  entries: LeaderboardEntry[];
+}
+
 export interface VolunteerSignup {
   id: string;
   userId: string;

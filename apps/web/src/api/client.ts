@@ -17,6 +17,7 @@ import type {
   IntegrationProvider,
   IntegrationSyncRecord,
   InviteTeammateInput,
+  Leaderboard,
   LoginInput,
   LogHoursInput,
   MyAddress,
@@ -205,6 +206,8 @@ export const opportunitiesApi = {
   },
 
   get: (id: string) => request<{ opportunity: VolunteerOpportunity }>(`/opportunities/${id}`),
+
+  getLeaderboard: (id: string) => request<Leaderboard>(`/opportunities/${id}/leaderboard`),
 
   create: (input: CreateOpportunityInput) =>
     request<{ opportunity: VolunteerOpportunity }>("/opportunities", {

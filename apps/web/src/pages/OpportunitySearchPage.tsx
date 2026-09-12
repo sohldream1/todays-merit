@@ -191,6 +191,14 @@ export function OpportunitySearchPage() {
                   </div>
                   {opp.description && <p className="mt-2 text-sm text-slate-600">{opp.description}</p>}
                   <RatingBadges rating={opp.organization.rating} />
+                  {opp.category === "competition" && (
+                    <Link
+                      to={`/opportunities/${opp.id}/leaderboard`}
+                      className="mt-1 block text-sm text-indigo-600 hover:underline"
+                    >
+                      View leaderboard →
+                    </Link>
+                  )}
                 </div>
 
                 <div className="shrink-0">

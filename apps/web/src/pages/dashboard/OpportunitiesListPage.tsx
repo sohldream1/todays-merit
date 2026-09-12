@@ -116,6 +116,11 @@ export function OpportunitiesListPage() {
               <Link to={`/dashboard/org/opportunities/${opp.id}/signups`} className={buttonClasses("text")}>
                 Participants
               </Link>
+              {opp.category === "competition" && (
+                <Link to={`/opportunities/${opp.id}/leaderboard`} className={buttonClasses("text")}>
+                  Leaderboard
+                </Link>
+              )}
               <Link to={`/dashboard/org/opportunities/${opp.id}/edit`} className={buttonClasses("text")}>
                 Edit
               </Link>

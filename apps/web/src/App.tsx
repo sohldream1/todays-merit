@@ -5,6 +5,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { HomePage } from "./pages/HomePage";
 import { DirectoryPage } from "./pages/DirectoryPage";
 import { OpportunitySearchPage } from "./pages/OpportunitySearchPage";
+import { OpportunityLeaderboardPage } from "./pages/OpportunityLeaderboardPage";
 import { OrganizationDetailPage } from "./pages/OrganizationDetailPage";
 import { MemberSignupPage } from "./pages/member/SignupPage";
 import { MemberLoginPage } from "./pages/member/LoginPage";
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/directory" element={<DirectoryPage />} />
         <Route path="/opportunities" element={<OpportunitySearchPage />} />
+        <Route path="/opportunities/:id/leaderboard" element={<OpportunityLeaderboardPage />} />
         <Route path="/organizations/:id" element={<OrganizationDetailPage />} />
         <Route path="/signup/member" element={<MemberSignupPage />} />
         <Route path="/login/member" element={<MemberLoginPage />} />

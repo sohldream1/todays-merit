@@ -1,6 +1,8 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import type {
+  Leaderboard,
+  LeaderboardEntry,
   MySignup,
   OpportunityCategory,
   OpportunityParticipant,
@@ -189,6 +191,57 @@ export async function getOpportunity(req: Request, res: Response) {
   }
 
   res.json({ opportunity: toOpportunity(opportunity) });
+}
+
+// Public, like getOpportunity itself — "who's winning" is the whole point
+// of a competition, so it's not gated behind being signed up or logged in.
+// Only competitions get standings; a race is a single event with no
+// ongoing hours to accumulate, and plain volunteer opportunities aren't a
+// contest at all.
+export async function getOpportunityLeaderboard(req: Request, res: Response) {
+  const opportunityId = req.params.id;
+
+  const opportunity = await prisma.volunteerOpportunity.findUnique({
+    where: { id: opportunityId },
+  });
+  if (!opportunity) {
+    throw new ApiError(404, "Opportunity not found");
+  }
+  if (opportunity.category !== "competition") {
+    throw new ApiError(400, "Leaderboards are only available for competitions");
+  }
+
+  const [signups, hourTotals] = await Promise.all([
+    prisma.volunteerSignup.findMany({
+      where: { opportunityId, status: { not: "cancelled" } },
+      include: { user: { select: { id: true, firstName: true, lastName: true } } },
+    }),
+    prisma.volunteerHour.groupBy({
+      by: ["userId"],
+      where: { opportunityId, verificationStatus: "verified_by_org" },
+      _sum: { hours: true },
+    }),
+  ]);
+
+  const hoursByUserId = new Map(hourTotals.map((t) => [t.userId, Number(t._sum.hours ?? 0)]));
+
+  const standings = signups
+    .map((s) => ({ user: s.user, verifiedHours: hoursByUserId.get(s.userId) ?? 0 }))
+    .sort((a, b) => b.verifiedHours - a.verifiedHours || a.user.firstName.localeCompare(b.user.firstName));
+
+  // Sports-style ranking: ties share a rank, and the rank after a tie skips
+  // ahead by the number tied (1, 2, 2, 4) rather than compressing (1, 2, 2, 3).
+  const entries: LeaderboardEntry[] = standings.map((s, i) => ({
+    rank: i > 0 && s.verifiedHours === standings[i - 1].verifiedHours ? -1 : i + 1,
+    user: s.user,
+    verifiedHours: s.verifiedHours,
+  }));
+  for (let i = 1; i < entries.length; i++) {
+    if (entries[i].rank === -1) entries[i].rank = entries[i - 1].rank;
+  }
+
+  const result: Leaderboard = { opportunity: { id: opportunity.id, title: opportunity.title }, entries };
+  res.json(result);
 }
 
 export async function createOpportunity(req: Request, res: Response) {

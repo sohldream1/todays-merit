@@ -279,7 +279,7 @@ export function OrganizationDetailPage() {
               </div>
               {opp.description && <p className="mt-2 text-sm text-slate-600">{opp.description}</p>}
 
-              <div className="mt-3">
+              <div className="mt-3 flex items-center gap-4">
                 {!user && (
                   <Link to="/login/member" className="text-sm text-indigo-600 hover:underline">
                     Log in as a member to sign up
@@ -296,6 +296,12 @@ export function OrganizationDetailPage() {
                       {isPending ? "Signing up…" : "Sign up"}
                     </Button>
                   ))}
+
+                {opp.category === "competition" && (
+                  <Link to={`/opportunities/${opp.id}/leaderboard`} className="text-sm text-indigo-600 hover:underline">
+                    View leaderboard →
+                  </Link>
+                )}
               </div>
             </Card>
           );

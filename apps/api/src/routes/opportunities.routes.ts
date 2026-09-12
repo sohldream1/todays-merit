@@ -3,6 +3,7 @@ import {
   cancelSignup,
   createOpportunity,
   getOpportunity,
+  getOpportunityLeaderboard,
   listOpportunitySignups,
   searchOpportunities,
   signUpForOpportunity,
@@ -15,6 +16,7 @@ export const opportunitiesRouter = Router();
 
 opportunitiesRouter.get("/", asyncHandler(searchOpportunities));
 opportunitiesRouter.get("/:id", asyncHandler(getOpportunity));
+opportunitiesRouter.get("/:id/leaderboard", asyncHandler(getOpportunityLeaderboard));
 opportunitiesRouter.post(
   "/",
   requireAuth,
