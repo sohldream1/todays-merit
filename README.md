@@ -60,60 +60,54 @@ packages/
    - API: http://localhost:4000
    - Web: http://localhost:5173 (proxies `/api/*` to the API)
 
-## This machine's dev environment (Windows on ARM)
+## Testing and linting
 
-This machine is Windows on ARM64, and neither Node.js nor Prisma's query engine ships a
-native Windows-ARM64 build yet (Prisma always resolves `binaryTarget` to plain `windows`,
-i.e. x64, and an ARM64 Node process can't load that x64 native addon). So this project's
-tooling runs under **x64 Node via Windows' built-in x64 emulation**, not the ARM64 Node
-build:
+```bash
+npm run lint        # ESLint across api, web, and shared-types
+npm run typecheck   # tsc --noEmit across every package
+npm test            # Vitest — unit + integration tests (api), unit tests (web)
+```
 
-- A portable x64 Node.js is unpacked at `C:\Users\cbmwe\.local-node-x64\node-v24.19.0-win-x64`
-  (separate from whatever `node`/`npm` resolves to on your normal `PATH`). Prepend it to
-  `PATH` before running any npm script in this repo, e.g. in PowerShell:
+The API suite includes real HTTP-level integration tests (via `supertest`, driving the
+actual Express `app`) for auth, the nonprofit verification workflow, and kudos — these run
+against a **separate, dedicated database** so they never touch your dev data:
 
-  ```powershell
-  $x64 = "C:\Users\cbmwe\.local-node-x64\node-v24.19.0-win-x64"
-  $env:PATH = "$x64;$env:PATH"
-  npm run dev
-  ```
+1. Create it once (same Postgres instance as your normal dev DB, just a different name):
 
-- Prisma is pinned to `6.19.2` (not the new `7.x` line) because Prisma 7 requires a
-  `prisma.config.ts` + driver-adapter rewrite that's still early days; `6.19.2` keeps the
-  classic `datasource { url = env("DATABASE_URL") }` schema style.
-- Postgres itself **is** installed as a normal Windows service (`postgresql-x64-17`, port
-  5432, via the official installer) — architecture doesn't matter for the server, only for
-  Node's native addons. However, this session didn't have the admin rights needed to set/know
-  that service's superuser password, so for local development a **second, user-owned Postgres
-  cluster** was initialized instead, with trust auth (no admin rights needed):
-  - Data directory: `C:\Users\cbmwe\.local-postgres\todays-merit-data`
-  - Running on port **5433** (not 5432, to avoid clashing with the Windows service)
-  - `apps/api/.env` points `DATABASE_URL` at `localhost:5433`
+   ```bash
+   createdb todays_merit_test
+   # or: psql -c "CREATE DATABASE todays_merit_test;"
+   ```
 
-  Start/stop it with:
+2. Apply migrations to it once (or whenever a new migration is added):
 
-  ```powershell
-  $bin = "C:\Program Files\PostgreSQL\17\bin"
-  $data = "C:\Users\cbmwe\.local-postgres\todays-merit-data"
-  & "$bin\pg_ctl.exe" -D $data -l "C:\Users\cbmwe\.local-postgres\server.log" -o "-p 5433" start
-  & "$bin\pg_ctl.exe" -D $data stop
-  ```
+   ```bash
+   cd apps/api
+   DATABASE_URL="postgresql://<user>:<pass>@localhost:<port>/todays_merit_test?schema=public" npx prisma migrate deploy
+   ```
 
-  If you'd rather use the "real" Windows Postgres service on 5432 instead, you'll need an
-  admin to set the `postgres` user's password, then update `DATABASE_URL` in
-  `apps/api/.env` accordingly.
+3. `apps/api/.env.test` (checked in — it only holds fixed dummy secrets, nothing real)
+   points `DATABASE_URL` at that test database and is loaded automatically by
+   `apps/api/vitest.setup.ts` before any test file runs. Adjust the host/port there if your
+   local Postgres isn't on the default `localhost:5433` this project's dev setup uses.
 
-None of this is Today's-Merit-specific — it only exists because of this machine's ARM64
-architecture and non-admin session. On a normal x64 dev machine (or an admin session on
-ARM64), skip straight to the plain "Getting started" steps above.
+Each test creates its own uniquely-named data (`uniqueEmail()` in `apps/api/src/testUtils.ts`)
+and cleans up after itself in `afterAll`, so the suite is safe to re-run repeatedly and
+doesn't need a full DB reset between runs. Rate limiting is skipped when `NODE_ENV=test`
+(the suite would otherwise trip the signup/login limiters within a single run) — that
+middleware itself is verified manually, not by the automated suite.
 
-## What's built so far
+There's no component-level (React Testing Library) or end-to-end (Playwright/Cypress)
+coverage yet — the web suite currently only covers pure logic (`src/lib/*.test.ts`).
 
-- Full Prisma schema for every entity in the MVP spec (organizations, users, org_admins,
-  volunteer_opportunities, volunteer_signups, volunteer_hours, campaigns, donations,
-  badges, user_badges, tiers, user_tiers).
-- End-to-end auth: signup (member + nonprofit-with-org-creation), login, logout, session
-  check (`/api/auth/me`), protected routes on the frontend.
+## Prisma on Windows ARM64
 
-Everything else in the spec's "first-slice features" (directory, opportunities, hour
-logging, campaigns/donations, badges/tiers, dashboard content) is not built yet.
+Prisma 7 dropped native Rust query-engine binaries in favor of driver adapters
+(`@prisma/adapter-pg` + the pure-JS `pg` driver here — see `apps/api/src/lib/prisma.ts` and
+`apps/api/prisma.config.ts`). That happens to fix a real problem on this class of machine:
+Prisma's old native engine only ever shipped for Windows x64, so an ARM64-native Node
+process couldn't load it. With the driver adapter, plain ARM64 Node works fine — no x64
+Node install, PATH tricks, or emulation needed.
+
+Postgres itself runs as a normal service; architecture only ever mattered for the Node
+native addon Prisma no longer uses.

@@ -2,7 +2,6 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import type {
   Leaderboard,
-  LeaderboardEntry,
   MySignup,
   OpportunityCategory,
   OpportunityParticipant,
@@ -12,6 +11,7 @@ import type {
   VolunteerSignup,
 } from "@todays-merit/shared-types";
 import { assertOrgAdmin } from "../lib/authz.js";
+import { rankStandings } from "../lib/leaderboard.js";
 import { refreshRatingInBackground, toCharityRatingDto } from "../ratings/ratingsService.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { prisma } from "../lib/prisma.js";
@@ -225,20 +225,8 @@ export async function getOpportunityLeaderboard(req: Request, res: Response) {
 
   const hoursByUserId = new Map(hourTotals.map((t) => [t.userId, Number(t._sum.hours ?? 0)]));
 
-  const standings = signups
-    .map((s) => ({ user: s.user, verifiedHours: hoursByUserId.get(s.userId) ?? 0 }))
-    .sort((a, b) => b.verifiedHours - a.verifiedHours || a.user.firstName.localeCompare(b.user.firstName));
-
-  // Sports-style ranking: ties share a rank, and the rank after a tie skips
-  // ahead by the number tied (1, 2, 2, 4) rather than compressing (1, 2, 2, 3).
-  const entries: LeaderboardEntry[] = standings.map((s, i) => ({
-    rank: i > 0 && s.verifiedHours === standings[i - 1].verifiedHours ? -1 : i + 1,
-    user: s.user,
-    verifiedHours: s.verifiedHours,
-  }));
-  for (let i = 1; i < entries.length; i++) {
-    if (entries[i].rank === -1) entries[i].rank = entries[i - 1].rank;
-  }
+  const standings = signups.map((s) => ({ user: s.user, verifiedHours: hoursByUserId.get(s.userId) ?? 0 }));
+  const entries = rankStandings(standings);
 
   const result: Leaderboard = { opportunity: { id: opportunity.id, title: opportunity.title }, entries };
   res.json(result);
